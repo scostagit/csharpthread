@@ -23,6 +23,8 @@ namespace ByteBank.View
     {
         private readonly ContaClienteRepository r_Repositorio;
         private readonly ContaClienteService r_Servico;
+        //Criação da lista para armazenar os resultados
+        List<string> resultado = new List<string>();
 
         public MainWindow()
         {
@@ -39,10 +41,12 @@ namespace ByteBank.View
 
         private void BtnProcessar_Click(object sender, RoutedEventArgs e)
         {
+            this.Cursor = Cursors.Wait;
+            
             //Obtem as contas do usuarios
             var contas = r_Repositorio.GetContaClientes();
             // a porção para cada thread processar
-            var contasQuantidadePorThread = contas.Count() / 4;   
+            var contasQuantidadePorThread = contas.Count() / 4;
             //vamos dividir o resultado da thread
             //Take(), que recebe, por parâmetro, um número inteiro que representa os n primeiros elementos a serem armazenados
             var contas_parte1 = contas.Take(contasQuantidadePorThread);
@@ -50,49 +54,30 @@ namespace ByteBank.View
             var contas_parte2 = contas.Skip(contasQuantidadePorThread).Take(contasQuantidadePorThread);
             var contas_parte3 = contas.Skip(contasQuantidadePorThread * 2).Take(contasQuantidadePorThread);
             var contas_parte4 = contas.Skip(contasQuantidadePorThread * 3);
-
-            //Criação da lista para armazenar os resultados
-            var resultado = new List<string>();
+           
             //Atualiza a lista 
             AtualizarView(new List<string>(), TimeSpan.Zero);
             //Inicio do processamento
             var inicio = DateTime.Now;
 
             //Thread:"linha de execução", que na realidade é a tradução de "thread", termo técnico bastante comum na computação quando falamos sobre Paralelismo.
-            Thread thread_parte1 = new Thread(()=> {
-                foreach (var conta in contas_parte1)
-                {
-                    var resultadoConta = r_Servico.ConsolidarMovimentacao(conta);
-                    resultado.Add(resultadoConta);
-                }
+            Thread thread_parte1 = new Thread(() => {
+                ConsolidarMovimentacao(contas_parte1);
             });
 
             Thread thread_parte2 = new Thread(() => {
-                foreach (var conta in contas_parte2)
-                {
-                    var resultadoConta = r_Servico.ConsolidarMovimentacao(conta);
-                    resultado.Add(resultadoConta);
-                }
+                ConsolidarMovimentacao(contas_parte2);
             });
 
             Thread thread_parte3 = new Thread(() =>
             {
-                foreach (var conta in contas_parte3)
-                {
-                    var resultadoProcessamento = r_Servico.ConsolidarMovimentacao(conta);
-                    resultado.Add(resultadoProcessamento);
-                }
+                ConsolidarMovimentacao(contas_parte3);
             });
 
             Thread thread_parte4 = new Thread(() =>
             {
-                foreach (var conta in contas_parte4)
-                {
-                    var resultadoProcessamento = r_Servico.ConsolidarMovimentacao(conta);
-                    resultado.Add(resultadoProcessamento);
-                }
+                ConsolidarMovimentacao(contas_parte4);                
             });
-
 
             //Aqui estou executando de fato as threads.
             thread_parte1.Start();
@@ -132,6 +117,8 @@ namespace ByteBank.View
             var fim = DateTime.Now;
 
             AtualizarView(resultado, fim - inicio);
+
+            this.Cursor = Cursors.Arrow;
         }
 
         private void AtualizarView(List<String> result, TimeSpan elapsedTime)
@@ -141,6 +128,15 @@ namespace ByteBank.View
 
             LstResultados.ItemsSource = result;
             TxtTempo.Text = mensagem;
+        }
+
+        private void ConsolidarMovimentacao(IEnumerable<ContaCliente> contas)
+        {
+            foreach (var conta in contas)
+            {
+                var resultadoProcessamento = r_Servico.ConsolidarMovimentacao(conta);
+                resultado.Add(resultadoProcessamento);
+            }
         }
     }
 }
