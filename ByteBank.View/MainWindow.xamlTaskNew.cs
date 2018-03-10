@@ -1,7 +1,6 @@
 ﻿using ByteBank.Core.Model;
 using ByteBank.Core.Repository;
 using ByteBank.Core.Service;
-using ByteBank.View.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -42,7 +41,6 @@ namespace ByteBank.View
     {
         private readonly ContaClienteRepository r_Repositorio;
         private readonly ContaClienteService r_Servico;
-        private CancellationTokenSource _cts;
 
         public MainWindow()
         {
@@ -52,30 +50,19 @@ namespace ByteBank.View
             //Criação to serviço de calculo.
             r_Servico = new ContaClienteService();
         }
-        private void BtnCancelar_Click(object sender, RoutedEventArgs e)
-        {
-            this.BtnCancelar.IsEnabled = false;
-            this._cts.Cancel();
-        }
-        private async void BtnProcessar_Click(object sender, RoutedEventArgs e)
-        {          
-            BtnProcessar.IsEnabled = false;
-            this.BtnCancelar.IsEnabled = true;
 
-            _cts = new CancellationTokenSource();
+        private async void BtnProcessar_Click(object sender, RoutedEventArgs e)
+        {
+            this.Cursor = Cursors.Wait;
+            BtnProcessar.IsEnabled = false;
 
             //Obtem as contas do usuarios
             var contas = r_Repositorio.GetContaClientes();
-            this.PgsProgresso.Maximum = contas.Count();
 
             //Limpar a tela.
             LimparView();
             //Inicio do processamento
             var inicio = DateTime.Now;
-           
-            var progress = new Progress<String>(str => PgsProgresso.Value++);
-            // var byteBankProgress = new ByteBankProgress<String>(str =>
-            //  PgsProgresso.Value++);
 
             //await
             //O recurso se chama AsyncAwait e não é à toa. A primeira palavra chave é o async, e a segunda é o await. 
@@ -84,23 +71,7 @@ namespace ByteBank.View
             //temos uma tarefa que retorna uma lista de string, e nossa preocupação não é com a tarefa, e sim com seu
             //resultado, a lista de string.Usando o await, podemos armazenar apenas o resultado desta tarefa em uma variável.
             //Vamos também comentar a linha var resultado = task.Result; para não haver conflito entre nomes.
-            try
-            {
-                var fim = DateTime.Now;
-                var resultado = await ConsolidarContas(contas, progress, _cts.Token);
-                AtualizarView(resultado, fim - inicio);
-            }
-            catch (OperationCanceledException)
-            {
-
-                this.TxtTempo.Text = "Operação cancelada pelo usuario";
-            }
-            finally
-            {            
-                this.BtnProcessar.IsEnabled = true;
-                this.BtnCancelar.IsEnabled = false;
-            }
-           
+            var resultado = await ConsolidarContas(contas);
             /*
                 * Nosso resultado não é uma task de lista de string como está definido em nossa função. O resultado é apenas uma lista de 
                 * string pois aqui, na verdade, é como se estivessemos dentro de um ContinueWith(). Mas todo o ornamento de criar-se uma 
@@ -112,31 +83,25 @@ namespace ByteBank.View
                 view e clique do botão. Sendo assim, vamos removê-los de ConsolidarContas(), deletando-se este também:
              */
 
-                 
+            var fim = DateTime.Now;
+            AtualizarView(resultado, fim - inicio);
+            BtnProcessar.IsEnabled = true;
+
+            this.Cursor = Cursors.Arrow;
         }
 
-        private async Task<string[]> ConsolidarContas(IEnumerable<ContaCliente> contas, IProgress<string> reportadorDeProgresso, CancellationToken ct)
-        {         
+        private async Task<string[]> ConsolidarContas(IEnumerable<ContaCliente> contas)
+        {
             /*
              * Parece que algo está estranho, pois estamos retornando uma lista vazia. Até o método ConsolidarContas retornar, 
              * nenhuma tarefa terá o processamento terminado. Na realidade, o que vamos retornar neste método não será uma lista de string, 
              * e sim uma tarefa que retorna uma lista de string. Ainda não vimos uma tarefa com retorno, mas isto é possível, sendo do mesmo 
              * tipo, porém genérico. Vamos utilizá-la como uma lista. Teremos uma task e, entre os sinais de maior e menor, indicamos o 
              * retorno da tarefa correspondente, no caso, uma lista de string.
-             */
+             */          
 
             var tasks = contas.Select(conta =>
-                Task.Factory.StartNew(() => {
-                   
-                    ct.ThrowIfCancellationRequested();
-
-                    var resultadoConsolidacao = r_Servico.ConsolidarMovimentacao(conta, ct);    
-                    reportadorDeProgresso.Report(resultadoConsolidacao);
-
-                    ct.ThrowIfCancellationRequested();
-
-                    return resultadoConsolidacao;
-                })
+                Task.Factory.StartNew(() => r_Servico.ConsolidarMovimentacao(conta))
             );
 
             /*

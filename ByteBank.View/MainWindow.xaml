@@ -17,13 +17,37 @@
                    DockPanel.Dock="Bottom"
                    HorizontalAlignment="Right">
         </TextBlock>
-        <Button Name="BtnProcessar"
+
+
+
+        <Grid DockPanel.Dock="Bottom">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <Button Name="BtnProcessar"
                 Padding="10"
-                DockPanel.Dock="Bottom"
                 Click="BtnProcessar_Click">
-            Fazer Processamento
-        </Button>
-        
+                Fazer Processamento
+            </Button>
+
+            <Button Name="BtnCancelar"
+            Padding="10"
+            Grid.Column="2"
+            IsEnabled="False"
+            Click="BtnCancelar_Click">
+                        Cancelar
+            </Button>
+
+        </Grid>
+
+        <!-- Barra de Progresso para dar feedback ao usuário -->
+        <ProgressBar Name="PgsProgresso"
+             Minimum="0"
+             Height="23"
+             DockPanel.Dock="Bottom"/>
+
         <!-- Resultado -->
         <TextBlock DockPanel.Dock="Top">Resultado:</TextBlock>
         <TextBlock DockPanel.Dock="Top"
